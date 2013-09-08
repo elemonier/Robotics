@@ -1,0 +1,8 @@
+Hwk1 Plans
+
+1. Straight line (option spiral - discuss 9/10)
+2. Hit box, record positional hit
+3. Hit:
+	Initial Hit: Reset
+	Left sensor: Turn right, turn until left sensor not triggered. Forward.
+	Front sensor/Reset: turn right until can only sense left, turn R until no sensor, turn left until left sensor triggered. Move forward.
