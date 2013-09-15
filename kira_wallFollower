@@ -1,0 +1,287 @@
+% Kira Whitehouse
+% kbw2116
+
+
+function finalRad= ExampleControlProgram(serPort)
+% Control program to autonomously move the iRobot around an environment
+% with walls. Once the iRobot hits a wall, it will follow the entire
+% distance of the wall, stopping only when it returns to the starting
+% point.
+%
+% For the physical Create only, it is assumed that the function call
+% serPort= RoombaInit(comPort) was done prior to running this program.
+% Calling RoombaInit is unnecessary if using the simulator.
+%
+% Input:
+% serPort - Serial port object, used for communicating over bluetooth
+%
+% Output:
+% finalRad - Double, final turning radius of the Create (m)
+
+% Set constants for this program
+maxFwdVel= 0.5;     % Max allowable forward velocity with no angular
+% velocity at the time (m/s)
+maxVelIncr= 0.1;  % Max incrementation of forward velocity (m/s)
+maxOdomAng= pi;   % Max angle to move around a circle before
+% increasing the turning radius (rad)
+
+
+
+% Initialize loop variables
+distTraveled= 0;    % Distance traveled without hitting obstacles (m)
+angTurned= 0;       % Angle turned since turning radius increase (rad)
+v= 0;               % Forward velocity (m/s)
+w= v2w(v);          % Angular velocity (rad/s)
+
+% Start robot moving
+SetFwdVelAngVelCreate(serPort,v,w)
+% Check for and react to bump sensor readings
+bumped= bumpCheckReact(serPort);
+
+% Enter main loop
+% If obstacle was not hit continue sweeping circularly, exploring
+while ~bumped
+    
+    % Update distance and angle recorders from odometry
+    distTraveled = distTraveled+DistanceSensorRoomba(serPort);
+    angTurned= angTurned+AngleSensorRoomba(serPort);
+    
+    % Increase turning radius if it is time
+    if angTurned >= maxOdomAng
+        % Either increase forward velocity by the increment or by half
+        % the difference to the max velocity, whichever is lower
+        v= min(v+maxVelIncr,v+(maxFwdVel-v)/2);
+        % Choose angular velocity based on max allowable wheel speed
+        w= v2w(v);
+        SetFwdVelAngVelCreate(serPort,v,w)
+        % This could be accomplished more simply by using
+        % SetFwdVelRadiusRoomba, this way is just done more fun
+    end
+    
+    % Check for and react to bump sensor readings
+    bumped= bumpCheckReact(serPort);
+    
+    % Briefly pause to avoid continuous loop iteration
+    pause(0.1)
+    
+end
+
+disp ('end');
+[bumpRight, bumpLeft, ~, ~, ~, bumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+disp(bumpRight);
+disp(bumpLeft);
+disp(bumpFront);
+
+
+% Specify output parameter
+finalRad= v/w;
+
+% Stop robot motion
+v= 0;
+w= 0;
+SetFwdVelAngVelCreate(serPort,v,w)
+
+% If you call RoombaInit inside the control program, this would be a
+% good place to clean up the serial port with...
+% fclose(serPort)
+% delete(serPort)
+% clear(serPort)
+% Don't use these if you call RoombaInit prior to the control program
+end
+
+function c = conditional(condition , a , b)
+    if condition
+        c = a;
+    else
+        c = b;
+    end
+end
+
+
+function [totalDistanceTraveled, totalAngleTurned] = blastoff(serPort, velocity, direction)
+pause(0.1);
+disp('blasting off');
+
+totalAngleTurned = 0;
+totalDistanceTraveled = 0;
+
+%access a temporary array element
+SetFwdVelAngVelCreate(serPort, velocity, 0);
+[bumpRight, bumpLeft, ~, ~, ~, bumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+bumpSide = conditional(direction == Bump.Clockwise, bumpLeft, bumpRight);
+
+%move forward at full speed until either
+%we have veered away from the wall we were following
+%we have hit a wall face-on
+distanceTraveled = 1;
+angleRotated = 1;
+while bumpSide && ~bumpFront && (distanceTraveled + angleRotated > 0)
+    pause(0.1);
+    [bumpRight, bumpLeft, ~, ~, ~, bumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+    bumpSide = conditional(direction == Bump.Clockwise, bumpLeft, bumpRight);
+    distanceTraveled = DistanceSensorRoomba(serPort);
+    totalDistanceTraveled  = totalDistanceTraveled + distanceTraveled;
+    turn = AngleSensorRoomba(serPort);
+    angleRotated = abs(turn);
+    totalAngleTurned  = totalAngleTurned + turn;
+
+end
+   
+%the side bumper is no longer compressed, thus either:
+%we have veered away from the wall we were following
+%we have reached a sharply angled obtuse turn
+SetFwdVelAngVelCreate(serPort, 0.05, velocity*4.5/4.9);
+while ~bumpSide && ~bumpFront
+    pause(0.1);
+    [bumpRight, bumpLeft, ~, ~, ~, bumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+    bumpSide = conditional(direction == Bump.Clockwise, bumpLeft, bumpRight);
+    
+    totalDistanceTraveled  = totalDistanceTraveled + DistanceSensorRoomba(serPort);
+    totalAngleTurned  = totalAngleTurned + AngleSensorRoomba(serPort);
+end
+
+end
+
+
+
+
+%rotate clockwise or counterclockwise
+%input direction is boolean, velocity is signed depending on angular rotation
+function totalAngleTurned = rotate(serPort, direction, velocity)
+[bumpRight, bumpLeft, ~, ~, ~, bumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+bumpSide = conditional(direction == Bump.Clockwise, bumpLeft, bumpRight);
+
+totalAngleTurned = 0;
+disp('rotating');
+
+%turn until we are no longer pressing bump sensor
+while bumpSide || bumpFront
+    ang = pi/10;
+    SetFwdVelAngVelCreate(serPort,0, velocity)
+    angTurned= 0;
+    while angTurned < ang
+        turn = AngleSensorRoomba(serPort);
+        totalAngleTurned = totalAngleTurned + turn;
+        angTurned= angTurned+abs(turn);
+        pause(0.1)
+    end
+    
+    [bumpRight, bumpLeft, ~, ~, ~, bumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+    bumpSide = conditional(direction == Bump.Clockwise, bumpLeft, bumpRight);
+    
+end
+
+%turn slightly clockwise s.t. we are just barely touching bump sensor
+ang = pi/10;
+SetFwdVelAngVelCreate(serPort,0, -velocity)
+angTurned= 0;
+while angTurned < ang
+    turn = AngleSensorRoomba(serPort);
+    totalAngleTurned = totalAngleTurned + turn;
+    angTurned= angTurned+abs(turn);
+    pause(0.1)
+end
+
+
+end
+
+
+function bumped= bumpCheckReact(serPort)
+% Check bump sensors and steer the robot along edges of obstacle
+%
+% Input:
+% serPort - Serial port object, used for communicating over bluetooth
+%
+% Output:
+% bumped - Boolean, true if bump sensor is activated
+
+% Check bump sensors (ignore wheel drop sensors)
+[BumpRight, BumpLeft, ~, ~, ~, bumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+bumped = BumpRight || BumpLeft || bumpFront;
+
+if(bumped)
+    disp('bumped!')
+    pause(0.1);
+    
+    % Reset angular odometry
+    AngleSensorRoomba(serPort);     
+    
+    goalx = 0;
+    goaly = 0;
+    totalDistanceTraveled = -0.001;
+    totalAngleTurned = 0;
+    priorBump = Bump.Clockwise;
+    priorVelocity = 0.49;
+    
+    while (goalx ~= 0 && goaly ~= 0) || (totalDistanceTraveled < 0)
+        disp('in main loop');
+        
+        rot = 0; ang = 0; dist = 0;
+        if BumpRight
+            disp('bump right: we should be turning left');
+            rot = rotate(serPort, Bump.CounterClockwise, 0.49);
+           
+            [dist, ang] = blastoff(serPort, 0.49, Bump.CounterClockwise);
+            
+            priorBump = Bump.CounterClockwise;
+            priorVelocity = 0.49;
+            
+        elseif BumpLeft
+            disp('bump left: we should be turning right');
+            rot = rotate(serPort, Bump.Clockwise, -0.49);
+            [dist, ang] = blastoff(serPort, 0.49, Bump.Clockwise);
+            priorBump = Bump.Clockwise;
+            priorVelocity = -0.49;
+                
+        elseif BumpFront
+            disp('bump front');
+            rot = rotate(serPort, priorBump, priorVelocity);
+            [dist, ang] = blastoff(serPort, 0.49, priorBump);
+            
+     
+        end
+        
+        disp(57.2957795*ang);
+        disp(57.2957795*rot);
+        disp(dist);
+        if(totalDistanceTraveled ~= 0)
+            goalx = goalx + dist*sin(-rot);
+            goaly = goaly + dist*cos(rot);
+            disp(goalx);
+            disp(goaly);
+        end
+        
+        totalAngleTurned = totalAngleTurned + ang + rot;
+        totalDistanceTraveled = totalDistanceTraveled + dist;
+        %disp(totalDistanceTraveled);
+        %disp(totalAngleTurned);
+        
+        %disp(dist*cos(totalAngleTurned));
+       % disp(dist*sin(totalAngleTurned));
+        
+
+        [BumpRight, BumpLeft, ~, ~, ~, BumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+        
+    end
+    
+    
+end
+end
+
+
+function w= v2w(v)
+% Calculate the maximum allowable angular velocity from the linear velocity
+%
+% Input:
+% v - Forward velocity of Create (m/s)
+%
+% Output:
+% w - Angular velocity of Create (rad/s)
+    
+    % Robot constants
+    maxWheelVel= 0.5;   % Max linear velocity of each drive wheel (m/s)
+    robotRadius= 0.2;   % Radius of the robot (m)
+    
+    % Max velocity combinations obey rule v+wr <= v_max
+    w= (maxWheelVel-v)/robotRadius;
+end
