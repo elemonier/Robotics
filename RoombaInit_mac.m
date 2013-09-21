@@ -9,7 +9,7 @@ function [serPort] = RoombaInit(my_COM)
 % if your code crashes frequently.  15 ms is recommended by irobot
 % By; Joel Esposito, US Naval Academy, 2011
 global td
-td = 0.015;
+td = 0.05;
 % This code puts the robot in CONTROL(132) mode, which means does NOT stop 
 % when cliff sensors or wheel drops are true; can also run while plugged into charger
 Contrl = 132;
