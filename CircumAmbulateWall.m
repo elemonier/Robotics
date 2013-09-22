@@ -2,9 +2,11 @@ function CircumAmbulateWall(serPort)%TODO -- change finalRad to desired output
 
     global Alpha NetDistance To DirectionTo;
     
-    SetFwdVelRadiusRoomba(serPort, 0.2, 2); %     -Move forward until any bump
+    SetDriveWheelsCreate(serPort, 0.3, 0.3); %     -Move forward until any bump
     while true
-        [BumpRight, BumpLeft, WheelDropRight, WheelDropLeft, WheelDropCastor, BumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+        [BumpRight, BumpLeft, ~, ~, ~, BumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+     
+        if(~isnan(BumpRight) || ~isnan(BumpLeft) || ~isnan(BumpFront))
         if (BumpRight || BumpLeft || BumpFront)
             SetFwdVelRadiusRoomba(serPort, 0, 2); %Stop
             if(BumpRight)
@@ -17,6 +19,7 @@ function CircumAmbulateWall(serPort)%TODO -- change finalRad to desired output
             DistanceSensorRoomba(serPort); %reset the distance sensor
             NetDistance = inf;
             break
+        end
         end
         pause(0.1)
     end
@@ -37,7 +40,7 @@ function CircumAmbulateWall(serPort)%TODO -- change finalRad to desired output
     
     Drag(serPort);
     
-    SetFwdVelRadiusRoomba(serPort, 0, 2); % Full Stop
+    SetDriveWheelsCreate(serPort, 0, 0); % Full Stop
     display('FINISHED');
 end
 
@@ -77,12 +80,12 @@ function Drag(serPort)
             display(dist);
             Coordinates(serPort, dist, AngleSensorRoomba(serPort));            
             if to == 2 || dist == 0 %front hit
-                SetFwdVelRadiusRoomba(serPort, 0, 2); %stop
+                SetDriveWheelsCreate(serPort, 0, 0); %stop
                 turnAngle(serPort, 0.2, -DirectionTo*15);
                 Reset(serPort);                         %fix direction
                 pause(0.1)
             end
-            SetFwdVelRadiusRoomba(serPort, 0.2, 2); %drive forward
+            SetDriveWheelsCreate(serPort, 0.3, 0.3); %drive forward
             pause(.1)
         else %lost the wall
             while to == 0 %spiral until hit
@@ -102,7 +105,7 @@ end
 function to= BumpingTo(serPort)
     global To;
     to = 0;
-    [BumpRight, BumpLeft, WheelDropRight, WheelDropLeft, WheelDropCastor, BumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+    [BumpRight, BumpLeft, ~, ~, ~, BumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
     if To == 'R' && BumpRight
         to = 1;
     elseif To == 'L' && BumpLeft
@@ -116,7 +119,7 @@ end
 
 function Reset(serPort)
     global DirectionTo;
-    SetFwdVelRadiusRoomba(serPort, 0, inf); %Stop
+    SetDriveWheelsCreate(serPort, 0, 0); %Stop
     to= BumpingTo(serPort);
     while to > 0
         turnAngle(serPort, 0.2, -DirectionTo*10);

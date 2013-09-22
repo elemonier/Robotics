@@ -1,8 +1,63 @@
-Hwk1 Plans
 
-1. Straight line (option spiral - discuss 9/10)
-2. Hit box, record positional hit
-3. Hit:
-	Initial Hit: Reset
-	Left sensor: Turn right, turn until left sensor not triggered. Forward.
-	Front sensor/Reset: turn right until can only sense left, turn R until no sensor, turn left until left sensor triggered. Move forward.
+START:
+    -Move forward until any bump
+    -Record hit position as ZEROTH
+    -If Right bump:
+        -RIGHT = TO
+        -LEFT = AWAY
+    -Else: (left or front bump)
+        -LEFT = TO
+        -RIGHT = AWAY
+    -turn 'AWAY' until no bump (or max orthogonal to wall)
+    -(while moving forward? -- this will change Coordinates)
+    -turn 'TO' (~1 degree?) until bump again (or orthog)
+    -Record starting angle as ALPHA
+    -DRAG
+
+Drag:
+    -while TO bump on:
+        -if TO && AWAY bump on:
+            -RESET
+        -Drive 'FORWARD' (whatever angle/direction is fastest)
+            (at max velocity)
+        -Pass distance && angle traveled deltaD deltaA to Coordinates
+    -While TO bump off:
+        -spiral a small circle TO
+        -turn TO ?? degrees and drive straight ?? distance
+        -If TO bump on:
+            -DRAG
+
+Reset:
+    -turn 'AWAY' until no bump (or max orthogonal to wall)
+    -(while moving forward? -deltaD- this will change Coordinates)
+    -turn 'TO' (~1 degree?) until bump again (or orthog)
+    -pass deltaA (&& deltaD) to Coordinates
+    -DRAG
+
+Run:
+    -Drive directly forward straight the remaining distance
+
+Coordinates:
+    -given ZEROTH and ALPHA determine breakdown components
+        -
+    -add them to a running sum of X and Y components
+    -if both X == 0 && Y == 0, (or close enough):
+        -STOP and end program
+    (if towards it and less that roomba length away??)
+    (??can we get delta from zeroth??)
+
+
+use stream if we need data
+record distance traveled in directions and once the net distance is zero stop
+use the wait to sense bumps on whichever side and otherwise keep going along wall random distance then check if wall is still there?
+must poll for meter distance periodically, or at every turn, if facing net zero direction poll constantly or assign wait until it reaches distance?.(depends on initial position of it and how we code it, maybe just set first turn/wall bump to be that direction)
+always set the velocity up whenever possible
+is it faster to spin in place or drive forward/backwards while turning if you hit something
+cliffs?
+
+Coordinates should live on computer, robot should continue until told to stop
+if distance is smaller then length of robot run ( lives on computer)
+Does the algorithm work for a roomba sized wall dent:
+ |..
+  o|
+ |""
