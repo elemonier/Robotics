@@ -1,31 +1,32 @@
 function CircumAmbulateWall(serPort)%TODO -- change finalRad to desired output
 
-    global Alpha NetDistance To DirectionTo;
+    global Angle NetDistance To DirectionTo TotalX TotalY;
     
     SetDriveWheelsCreate(serPort, 0.3, 0.3); %     -Move forward until any bump
     while true
         [BumpRight, BumpLeft, ~, ~, ~, BumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
-     
         if(~isnan(BumpRight) || ~isnan(BumpLeft) || ~isnan(BumpFront))
-        if (BumpRight || BumpLeft || BumpFront)
-            SetFwdVelRadiusRoomba(serPort, 0, 2); %Stop
-            if(BumpRight)
-                To = 'R';
-                DirectionTo = -1;
-            else
-                To = 'L';
-                DirectionTo = 1;
+            if (BumpRight || BumpLeft || BumpFront)
+                SetFwdVelRadiusRoomba(serPort, 0, 2); %Stop
+                if(BumpRight)
+                    To = 'R';
+                    DirectionTo = -1;
+                else
+                    To = 'L';
+                    DirectionTo = 1;
+                end
+                DistanceSensorRoomba(serPort); %reset the distance sensor
+                NetDistance = inf;
+                TotalX = 0.0;
+                TotalY = 0.0;
+                break
             end
-            DistanceSensorRoomba(serPort); %reset the distance sensor
-            NetDistance = inf;
-            break
-        end
         end
         pause(0.1)
     end
     display('Variables Set');
     to= BumpingTo(serPort);
-    while to == 1
+    while to > 0 
         turnAngle(serPort, 0.2, -DirectionTo*10);
         to= BumpingTo(serPort);
         pause(0.2)
@@ -36,36 +37,56 @@ function CircumAmbulateWall(serPort)%TODO -- change finalRad to desired output
         pause(0.2)
     end
     AngleSensorRoomba(serPort); %reset the angle sensor
-    Alpha = 0;
+    pause(.2)
+    Angle = 0.0;
     
     Drag(serPort);
+%     test(serPort);
     
     SetDriveWheelsCreate(serPort, 0, 0); % Full Stop
     display('FINISHED');
 end
 
-function Coordinates(serPort, deltaDist, deltaAngle)
-%     display(deltaDist);
-%     display(deltaAngle);
-%     persistent TotalX TotalY TotalAngle;
-%     global NetDistance;
-% 
-%     if(TotalAngle)
-%     TotalAngle = TotalAngle + deltaAngle;
-%     
-%     TotalX = TotalX + cos(TotalAngle)*deltaDist;
-%     TotalY = TotalY + sin(TotalAngle)*deltaDist;
-%     
-%     if(TotalX == 0 && TotalY == 0) %or close enough
-%         NetDistance = 0;
-%     end
+function test(serPort)
+    global DirectionTo;
 
-%     Alpha = Alpha + deltaAngle;
-%     
-%     if(angle == 0)
-%         NetDistance = NetDistance + (prevAngle * deltaDist); %fix Me
-%     end
-%     prevAngle = Alpha;
+AngleSensorRoomba(serPort); %reset
+display(AngleSensorRoomba(serPort)*180/pi);
+turnAngle(serPort, 0.2, DirectionTo*70)
+display(AngleSensorRoomba(serPort)*180/pi);
+
+end
+
+function Coordinates(serPort, deltaDist)
+    global NetDistance Angle TotalX TotalY;
+%     display(deltaDist);
+    
+    deltaAngle = AngleSensorRoomba(serPort)*180/pi;
+    display(deltaAngle);
+    display(Angle)
+   
+    if(deltaDist > 0)
+
+        TotalX = TotalX + (cos(Angle*pi/180)*deltaDist)*100;
+        TotalY = TotalY + (sin(Angle*pi/180)*deltaDist)*100;            
+        absAng = abs(abs(Angle) - 360);
+        if (absAng < 10)
+            
+            if(TotalX < 100 && TotalX > -100) % or close enough
+                if(TotalY < 100 && TotalY > -100)
+                    SetDriveWheelsCreate(serPort, 0, 0); % Full Stop
+                    NetDistance = 0;
+                end
+            end
+        end
+
+    end
+    
+    Angle = Angle + deltaAngle;
+    
+    display(TotalX)
+    display(TotalY)
+
 end
 
 function Drag(serPort)
@@ -73,19 +94,20 @@ function Drag(serPort)
     %tStart= tic;        % Time limit marker
     %maxDuration = 1;
     display('DRAGGING');
+    AngleSensorRoomba(serPort);
     while NetDistance ~= 0
         to= BumpingTo(serPort);
         if to > 0
             dist = DistanceSensorRoomba(serPort);
-            display(dist);
-            Coordinates(serPort, dist, AngleSensorRoomba(serPort));            
+            Coordinates(serPort, dist); %angle should be zero if straight wall
+            pause(0.1)
             if to == 2 || dist == 0 %front hit
-                SetDriveWheelsCreate(serPort, 0, 0); %stop
-                turnAngle(serPort, 0.2, -DirectionTo*15);
-                Reset(serPort);                         %fix direction
+                SetDriveWheelsCreate(serPort, 0.1, 0.1); %stop
+                turnAngle(serPort, 0.2, -DirectionTo*25);
                 pause(0.1)
+                Reset(serPort);                         %fix direction
             end
-            SetDriveWheelsCreate(serPort, 0.3, 0.3); %drive forward
+            SetDriveWheelsCreate(serPort, 0.2, 0.2); %drive forward
             pause(.1)
         else %lost the wall
             while to == 0 %spiral until hit
@@ -104,22 +126,22 @@ end
 
 function to= BumpingTo(serPort)
     global To;
-    to = 0;
+    to = 0; % not touching
     [BumpRight, BumpLeft, ~, ~, ~, BumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
     if To == 'R' && BumpRight
-        to = 1;
+        to = 1; %dragging correct wall
     elseif To == 'L' && BumpLeft
-        to = 1;
+        to = 1; %dragging correct wall
     elseif BumpFront
-        to = 2;   
+        to = 2; %front hit
     end
-    display(to);
+%     display(to);
 
 end
 
 function Reset(serPort)
     global DirectionTo;
-    SetDriveWheelsCreate(serPort, 0, 0); %Stop
+%     SetDriveWheelsCreate(serPort, 0, 0); %Stop
     to= BumpingTo(serPort);
     while to > 0
         turnAngle(serPort, 0.2, -DirectionTo*10);
@@ -132,7 +154,7 @@ function Reset(serPort)
         pause(0.1)
     end
 %     Do we want to pass zero distance here?
-    Coordinates(serPort, 0, AngleSensorRoomba(serPort));
+    Coordinates(serPort, 0);
 end
 
 % Briefly pause to avoid continuous loop iteration

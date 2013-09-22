@@ -83,7 +83,7 @@ global keepGoing;
     if(isnan(keepGoing))
         keepGoing = 1;
     end
-    avg_count = 2;
+    avg_count = 1;
     
     while keepGoing
        

@@ -12,4 +12,4 @@
 %   theta is the angle relative to the positive x-axis
 
 
-wall -0.302 3.130 -0.336 -2.170
+wall 0.0 4.0 0.0 -1.0
