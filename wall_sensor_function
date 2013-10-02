@@ -1,5 +1,0 @@
-%put the following lines into CreateRobot.m
-
-function Wall = ReadWallSensor(port)
-    Wall = genIR(port);
-end
