@@ -263,4 +263,7 @@ end
 function displayGraph(x_position, y_position, x_angle, y_angle)
     figure;
     quiver(x_position, y_position, x_angle, y_angle);
+    title('Position and Orientation of Robot Relative to Initial State.');
+    xlabel('X Position');
+    ylabel('Y Position');
 end
