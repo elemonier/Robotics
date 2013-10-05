@@ -124,10 +124,15 @@ function hw_2_Team11(serPort)
         % Step 2.5 - Update Information for graphing Pos + Orientation%
         %=============================================================%
         % Keep tracking the position and angle in space
-        u(end + 1) = cos(current_angle * pi/180);
-        v(end + 1) = sin(current_angle * pi/180);
-        x(end + 1) = current_pos_tangential;
-        y(end + 1) = current_pos_normal;    
+
+        if size(x) == 0
+
+        else
+
+            x(end + 1) = x(end) + distance_temp * u(end);
+            y(end + 1) = y(end) + distance_temp * v(end);
+        end
+           
         pause(0.1);
         %drawnow;            % not entirely sure what thizzz is ?
         %=============================================================%        
@@ -199,9 +204,6 @@ function hw_2_Team11(serPort)
                 fprintf('Robot stopped at Goal point\n');
                 SetFwdVelAngVelCreate(serPort, 0, 0 );
                 fprintf('Robot is ready for next command\n');
-                
-                %display x, y, and orientation of robot during travel.
-                displayGraph(x, y, u, v);
                 return;
             case 6 % FAILURE
                 fprintf('Robot failed to reach goal\n');
@@ -223,6 +225,8 @@ function hw_2_Team11(serPort)
                 status = 1;
         end
     end
+    %display x, y, and orientation of robot during travel.
+    displayGraph(x, y, u, v);
 end
 
 %%
