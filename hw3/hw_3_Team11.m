@@ -11,21 +11,10 @@
 
 function hw_3_Team11(serPort)
     
-    [x_scans, y_scans] = detect_room_boundary(serPort); 
+    %gather travels
+    [x_scans, y_scans, angle_scans, ~] = detect_room_boundary(serPort, 10000); 
     [~, dim] = size(x_scans);
-    dim = dim - 1;
-    
-    %meters
-    robot_diameter = 0.34306;
-    big_mama_x = ceil((abs(max(x_scans)) + abs(min(x_scans)))/robot_diameter) + 1;
-    big_mama_y = ceil((abs(max(y_scans)) + abs(min(y_scans)))/robot_diameter) + 1;
-
-    % create 2D map filled with zeros
-    % 0 = we have not traversed this space
-    % 1 = there is no object/wall/obstacle in this space
-    % -1 = there is an object/wall/obstacle in this space
-    MAP = zeros(big_mama_x, big_mama_y);
-   
+ 
     min_x = abs(min(x_scans));
     min_y = abs(min(y_scans));
     %modify x,y positions s.t. all are positive values
@@ -34,78 +23,188 @@ function hw_3_Team11(serPort)
         y_scans(i) = y_scans(i) + min_y + 1;
     end
     
-    %used to have ceil instead of round -- here were results from
-    %rectangular room
-    %{
-    CEIL
-
-     0     0     0     0     0     0     0     0     0
-     0     0     0     0     0     0     0     0     0
-     0     0     0     0     0     0     0     0     0
-     0     0     0     0     1     0     1     0     0
-     0     0     0     0     1     1     1     1     1
-     0     0     0     0     1     0     0     0     1 
-     0     0     0     1     1     0     0     0     1 
-     0     0     0     1     1     0     0     0     1 
-     0     0     0     1     0     0     0     0     1 
-     0     0     0     1     0     0     0     0     1 
-     0     0     0     1     0     0     0     0     1 
-     0     0     0     1     1     1     1    1     1
-
-    ROUND
-
-     0     0     0     0     0     0     0    0    0
-     0     0     0     0     0     0     0    0    0
-     0     0     0     0     0     0     0    0    0
-     0     0     0     1     1     1     1    1    1
-     0     0     0     1     0     0     0    0    1
-     0     0     0     1     0     0     0    0    1
-     0     0     0     1     0     0     0    0    1
-     0     0     0     1     0     0     0    0    1
-     0     0     0     1     0     0     0    0    1
-     0     0     0     1     0     0     0    0    1
-     0     0     0     1     1     1     0    1    1
-     0     0     0     0     0     1     1    1    1
-    %}
+    %meters
+    robot_diameter = 0.34306;
     
-    %set current position
-    cur_x = round(x_scans(end)/ robot_diameter) + 1;
-    cur_y = round(y_scans(end)/ robot_diameter) + 1;
-    
+    % create 2D map filled with zeros
+    % 0 = we have not traversed this space
+    % 1 = there is no object/wall/obstacle in this space
+    % -1 = there is an object/wall/obstacle in this space
+    big_mama_x = ceil(max(x_scans)/robot_diameter);
+    big_mama_y = ceil(max(y_scans)/robot_diameter);
+    MAP = zeros(big_mama_y, big_mama_x);
+
     %current position is clear (void of obstacles)
     %MAP(cur_x, cur_y) = 1;
     %positions we have traversed are clear (void of obstacles)
     for i = 1:dim
-        x_pos = round(x_scans(i)/ robot_diameter) + 1;
-        y_pos = round(y_scans(i)/ robot_diameter) + 1;
-        disp(x_pos);
-        disp(y_pos);
-        MAP(x_pos, y_pos) = 1;
+        x_pos = round(x_scans(i)/ robot_diameter);
+        y_pos = round(y_scans(i)/ robot_diameter);
+
+        MAP(y_pos, x_pos) = 1;
+    end
+        
+    %for each row move from left and from right and fill with -1s
+    for i = 1:big_mama_x
+        j = 1;
+        while (j <= big_mama_y) && (MAP(j, i) ~= 1)
+            MAP(j, i) = -1;
+            j = j + 1;
+        end
+        
+        j = big_mama_y;
+        while (j > 0) && (MAP(j, i) ~= 1)
+            MAP(j, i) = -1;
+            j = j - 1;
+        end 
     end
     
-    %error check
+    
+    %for each column move from top and from bottom and fill with -1s
+    for j = 1:big_mama_y
+        i = 1;
+        while (i <= big_mama_x) && (MAP(j, i) ~= 1)
+            MAP(j, i) = -1;
+            i = i + 1;
+        end
+        
+        i = big_mama_x;
+        while (i > 0) && (MAP(j, i) ~= 1)
+            MAP(j, i) = -1;
+            i = i - 1;
+        end
+    end
+    
     disp(MAP);
     
+    %set current position
+    cur_x = round(x_scans(end)/ robot_diameter);
+    cur_y = round(y_scans(end)/ robot_diameter);
     
+    %current angle
+    cur_a = angle_scans(end);
+    
+    disp('current positionx, positiony, angle');
+    disp(cur_x);
+    disp(cur_y);
+    disp(cur_a * 180/pi);
+        
+    dest_x = 1;
+    dest_y = 1;
+    
+    %while zeros are still in the map
+    %CHANGE TO WHILE
+    if contains_zeros(MAP)
+        
+        %find a zero
+        for i = 1:big_mama_x
+            for j = 1:big_mama_y
+                if(MAP(j, i) == 0)
+                    dest_x = i;
+                    dest_y = j;
+                end
+            end
+        end
+        
+        disp(dest_x);
+        disp(dest_y);
+        
+        
+        %calculate angle from current position to zero
+        angle = calculate_angle(cur_a, cur_x, cur_y, dest_x, dest_y);
+        turnAngle(serPort, 0.1, angle);
+        
+        disp(angle);
 
+        %calculate angle from current position to zero
+        distance = calculate_distance(cur_x, cur_y, dest_x, dest_y);
+
+        disp(distance);
+        
+        %use bug 2 to move forward distance to zero
+        %update current position and map while moving
+        %if we can't reach the zero position, mark zero position with -1
+        [MAP, cur_x, cur_y, cur_a, success] = bug_2(serPort, distance, MAP, cur_x, cur_y, cur_a);
+        disp(MAP);
+        disp(cur_x);
+        disp(cur_y);
+        disp(cur_a);
+        disp(success);
+        MAP(dest_y, dest_x) = success;
+        disp(MAP);
+        
+    end
+end
+
+function zeros = contains_zeros(map)
+    for r = 1:size(map, 1)
+        for c = 1:size(map, 2)
+            if (map(r, c) == 0)
+                zeros = true;
+                return;
+            end
+        end
+    end
+end
+ 
+
+function dist = calculate_distance(start_x, start_y, goal_x, goal_y)
+    dist = sqrt((goal_y - start_y)^2 + (goal_x - start_x)^2);
+    dist = dist * 0.34306;
+end
+
+function angle = calculate_angle(start_angle, start_x, start_y, goal_x, goal_y)
+    if(start_y == goal_y)
+        if(start_x > goal_x)
+            angle = pi;
+        else
+            angle = 0;
+        end
+    elseif(start_x == goal_x)
+        if(start_y > goal_y)
+            angle = 3.0*pi/2.0;
+        else
+            angle = pi/2.0;
+        end
+        return
+    else
+        delta_y = goal_y - start_y;
+        delta_x = goal_x - start_x;
+        sign_y = delta_y/abs(delta_y);
+        sign_x = delta_x/abs(delta_x);
+        
+        angle = (pi/2 - (pi/2)*sign_x) + sign_y*(atan(delta_y/delta_x));
+        
+    end
+    angle = angle - start_angle;
+end
+
+
+function [MAP, cur_x, cur_y, cur_a, success] = bug_2(serPort, distance, MAP, cur_x, cur_y, cur_a)
     
+    [x_scans, y_scans, angles, success] = detect_room_boundary(serPort, distance);
+    
+    %meters
+    robot_diameter = 0.34306;
+
+    %positions we have traversed are clear (void of obstacles)
+    for i = 1:size(x_scans)
+        x_pos = round(x_scans(i)/ robot_diameter);
+        y_pos = round(y_scans(i)/ robot_diameter);
+
+        MAP(y_pos, x_pos) = 1;
+    end
     
 end
 
 
-function [x, y] = detect_room_boundary(serPort)
+%used to trace room boundary
+function [x, y, angles, success] = detect_room_boundary(serPort, goal_distance)
 %=============================================================%
     % Description                                                 %
     %=============================================================%
     % This is a simple solution for HW 2 built on HW 1's solution %
     %=============================================================%
-    
-    %%
-    %=============================================================%
-    % Clear cache && avoid NaN values                             %
-    %=============================================================%
-    clc;                                                          % Clear the cache
-                                                                  % #ClicLab4Ever
     % Poll for bump Sensors to avoid getting NaN values when the 
     % robot first hits a wall
     [BumpRight BumpLeft WheDropRight WheDropLeft WheDropCaster ...
@@ -144,10 +243,9 @@ function [x, y] = detect_room_boundary(serPort)
     %=======================%
     % Distance Thresholds   %
     %=======================%
-    dist_thresh_from_goal = 0.3;
+    dist_thresh_from_goal = 0.1;
     dist_thresh_from_hit  = 0.2;
     slope_thresh_for_m_line = 0.1; %%% experiment with thizz bound
-    goal_distance = 100;          % in the tangential direction (Initial Forward)
     %=======================%
    
     %=======================%
@@ -157,7 +255,7 @@ function [x, y] = detect_room_boundary(serPort)
     y = [];                 %y position of roomba
     u = [];                 %x vector component of orientation
     v = [];                 %y vector component of orientation
-    bumped = false;
+    angles = [];
     
     %=======================%
     % Status Variable       %
@@ -210,12 +308,13 @@ function [x, y] = detect_room_boundary(serPort)
         %=============================================================%
         % Keep tracking the position and angle in space
         
-        if bumped
+        %if bumped
+            angles(end +1) = current_angle * pi/180;
             u(end + 1) = cos(current_angle * pi/180);
             v(end + 1) = sin(current_angle * pi/180);
             x(end + 1) = current_pos_tangential;
             y(end + 1) = current_pos_normal;    
-        end
+        %end
         
         pause(0.1);
         %drawnow;            % not entirely sure what thizzz is ?
@@ -236,8 +335,8 @@ function [x, y] = detect_room_boundary(serPort)
         % Step 3.5 - Debugging                                        %
         %=============================================================%
         %display(status)
-        display(current_pos_normal)
-        display(current_pos_tangential)
+        %display(current_pos_normal)
+        %display(current_pos_tangential)
         %display(proximity);
         %display(hit_proximity_to_goal);
         %display(angle_temp);
@@ -290,7 +389,7 @@ function [x, y] = detect_room_boundary(serPort)
                 SetFwdVelAngVelCreate(serPort, 0, 0 );
                 fprintf('Robot is ready for next command\n');
                 
-                %display x, y, and orientation of robot during travel.
+                success = 1;
                 displayGraph(x, y, u, v);
                 return;
             case 6 % FAILURE
@@ -307,6 +406,7 @@ function [x, y] = detect_room_boundary(serPort)
                 fprintf('as long as such protection does not\n');
                 fprintf('conflict with the First or Second Law.\n');
                 displayGraph(x, y, u, v);
+                success = -1;
                
                 return;
             case 7 % passed the goal
