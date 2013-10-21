@@ -75,13 +75,15 @@ function hw_3_Team11(serPort)
         end
     end
     
+    %displays when status = 6. Reached origin point, cannot reach goal
+    disp('current map 1')
     disp(MAP);
     
     %set current position
     cur_x = round(x_scans(end)/ robot_diameter);
     cur_y = round(y_scans(end)/ robot_diameter);
     
-    %current angle
+    %current angle: asigns to last angle in angle history
     cur_a = angle_scans(end);
     
     disp('current positionx, positiony, angle');
@@ -93,8 +95,8 @@ function hw_3_Team11(serPort)
     dest_y = 1;
     
     %while zeros are still in the map
-    %CHANGE TO WHILE
-    if contains_zeros(MAP)
+    %CHANGE TO WHILE - donezo.
+    while contains_zeros(MAP)
         
         %find a zero
         for i = 1:big_mama_x
@@ -106,25 +108,34 @@ function hw_3_Team11(serPort)
             end
         end
         
+        %This is our new bug 2 alg goal
+        disp('new goal for bug 2 algo:')
         disp(dest_x);
         disp(dest_y);
         
         
-        %calculate angle from current position to zero
+        %calculate angle from current position to zero goal
         angle = calculate_angle(cur_a, cur_x, cur_y, dest_x, dest_y);
-        turnAngle(serPort, 0.1, angle);
-        
-        disp(angle);
 
-        %calculate angle from current position to zero
+        %calculate distance from current position to zero goal
         distance = calculate_distance(cur_x, cur_y, dest_x, dest_y);
-
+        
+        %angle + distance from current locaiton to goal locatioon
+        disp('angle + distance from current location to goal location')
+        disp(angle);
         disp(distance);
+        
+        %turn to make angle between current location + goal zero
+        %angle was very small on some of these, so I slowed down the turn
+        %angle speed
+        turnAngle(serPort, 0.05, angle);
         
         %use bug 2 to move forward distance to zero
         %update current position and map while moving
         %if we can't reach the zero position, mark zero position with -1
         [MAP, cur_x, cur_y, cur_a, success] = bug_2(serPort, distance, MAP, cur_x, cur_y, cur_a);
+        
+        disp('current map 2.')
         disp(MAP);
         disp(cur_x);
         disp(cur_y);
@@ -299,7 +310,6 @@ function [x, y, angles, success] = detect_room_boundary(serPort, goal_distance)
         hit_pos_tangential = hit_pos_tangential + cos(hit_angle*pi/180) * distance_temp;
         pause(0.1);
         
-        %drawnow;            % not entirely sure what thizzz is ?
         %=============================================================%
         
         %%
@@ -334,7 +344,7 @@ function [x, y, angles, success] = detect_room_boundary(serPort, goal_distance)
         %=============================================================%
         % Step 3.5 - Debugging                                        %
         %=============================================================%
-        %display(status)
+        display(status)
         %display(current_pos_normal)
         %display(current_pos_tangential)
         %display(proximity);
